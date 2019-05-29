@@ -1,0 +1,22 @@
+version: '2'
+services:
+  app:
+    image: golang:1.12.5-alpine3.9
+    volumes:
+      - .:/go/src/github.com/ClementTeyssa/3PJT-API2/
+    working_dir: /go/src/github.com/ClementTeyssa/3PJT-API2/
+    command: go run main.go rooter.go
+    ports:
+      - "8282:8080"
+    labels:
+      - "traefik.docker.network=web"
+      - 'traefik.enable=true'
+      - "traefik.frontend.rule=Host:3pjt-api2.infux.fr"
+      - "traefikbasic.port=8282"
+    container_name: 3pjt-api2
+    networks:
+      - web
+      - default
+networks:
+  web:
+    external: true
