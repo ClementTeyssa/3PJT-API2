@@ -1,0 +1,13 @@
+{
+	"comment": "",
+	"ignore": "test",
+	"package": [
+		{
+			"checksumSHA1": "WgzN84Tx+7en7p/e8gSTupIqygw=",
+			"path": "github.com/gorilla/mux",
+			"revision": "c5c6c98bc25355028a63748a498942a6398ccd22",
+			"revisionTime": "2019-03-16T13:32:43Z"
+		}
+	],
+	"rootPath": "github.com/ClementTeyssa/3PJT-API2"
+}
