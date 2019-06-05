@@ -16,6 +16,7 @@ type Transaction struct {
 	AccountFrom string  `json:"accountfrom"`
 	AccountTo   string  `json:"accountto""`
 	Amount      float32 `json:"amount"`
+	Private     []byte  `json:"privatekey"`
 }
 
 type NodeGet struct {
@@ -28,8 +29,9 @@ type NodesGet struct {
 }
 
 type Node struct {
-	Ip   string
-	Port string
+	Ip     string
+	Port   string
+	Adress string
 }
 
 type Nodes []Node
@@ -48,7 +50,7 @@ type GoodResult struct {
 }
 
 const URL_GET_NODES = "https://3pjt-dnode.infux.fr/get-nodes"
-const URL_GET_SOLDE_API = "https://3pjt-dnode.infux.fr/soldeapi"
+const URL_GET_SOLDE_API = "https://3pjt-api.infux.fr/soldeapi"
 const URL_GET_VERIF = "https://3pjt-api.infux.fr/transactions/verify"
 
 func DoVerifications(w http.ResponseWriter, r *http.Request) {
@@ -72,8 +74,6 @@ func DoVerifications(w http.ResponseWriter, r *http.Request) {
 			helper.ErrorHandlerHttpRespond(w, err.Error())
 			return
 		}
-		println(GetNode.Account)
-		println(enoughSolde)
 
 		// si il y a suffisament de solde
 		if enoughSolde == true {
@@ -81,6 +81,7 @@ func DoVerifications(w http.ResponseWriter, r *http.Request) {
 			var Node Node
 			Node.Ip = vars[2]
 			Node.Port = vars[4]
+			Node.Adress = GetNode.Account
 			Nodes = append(Nodes, Node)
 
 		}
@@ -110,6 +111,7 @@ func DoVerifications(w http.ResponseWriter, r *http.Request) {
 	err = json.Unmarshal(body2, &transaction)
 	if err != nil {
 		helper.ErrorHandlerHttpRespond(w, "json.Unmarshal(body, &transaction)")
+		println(string(body2))
 		return
 	}
 
@@ -120,7 +122,7 @@ func DoVerifications(w http.ResponseWriter, r *http.Request) {
 	println(verif2)
 	println(verif3)
 
-	// si les 3 sont error on retourne
+	// si les un des 3 retourne une erreur -> on retourne
 
 	if !verif1 || !verif2 || !verif3 {
 		if !verif1 {
@@ -213,6 +215,7 @@ func verifyEnoughSolde(adress string) (bool, error) {
 	AdressApiKey.ApiKey = helper.ApiKey
 
 	jsonToSend, err := json.Marshal(AdressApiKey)
+
 	if err != nil {
 		return false, err
 	}
@@ -238,7 +241,6 @@ func verifyEnoughSolde(adress string) (bool, error) {
 
 	var Solde Solde
 	json.Unmarshal(body, &Solde)
-	println(Solde.Solde)
 
 	// si le solde n'est pas suffisant pour être "sûr"
 	if Solde.Solde < 10 {
@@ -253,8 +255,11 @@ func askForVerifToNodes(node Node, transac Transaction) (bool, error) {
 	if err != nil {
 		return false, err
 	}
+	println(node.Ip)
+	println(node.Port)
 
-	response, err := http.Post(URL_GET_VERIF, "application/json", bytes.NewBuffer(jsonToSend))
+	//send to a node
+	response, err := http.Post("http://"+node.Ip+":"+node.Port, "application/json", bytes.NewBuffer(jsonToSend))
 	if err != nil {
 		return false, err
 	}
