@@ -207,6 +207,9 @@ func choose3Nodes(pNodes Nodes) Nodes {
 	Nodes = append(Nodes, pNodes[indexNode1])
 	Nodes = append(Nodes, pNodes[indexNode2])
 	Nodes = append(Nodes, pNodes[indexNode3])
+	println(indexNode1)
+	println(indexNode2)
+	println(indexNode3)
 
 	return Nodes
 }
