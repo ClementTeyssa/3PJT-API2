@@ -116,11 +116,14 @@ func DoVerifications(w http.ResponseWriter, r *http.Request) {
 	}
 
 	verif1, err1 := askForVerifToNodes(Nodes[0], transaction)
-	verif2, err2 := askForVerifToNodes(Nodes[1], transaction)
-	verif3, err3 := askForVerifToNodes(Nodes[2], transaction)
 	println(verif1)
+	println(err1.Error())
+	verif2, err2 := askForVerifToNodes(Nodes[1], transaction)
 	println(verif2)
+	println(err2.Error())
+	verif3, err3 := askForVerifToNodes(Nodes[2], transaction)
 	println(verif3)
+	println(err3.Error())
 
 	// si les un des 3 retourne une erreur -> on retourne
 
@@ -192,11 +195,10 @@ func getNodes() (NodesGet, error) {
 func choose3Nodes(pNodes Nodes) Nodes {
 	indexNode1 := rand.Intn(len(pNodes))
 	indexNode2 := rand.Intn(len(pNodes))
-	indexNode3 := rand.Intn(len(pNodes))
-
 	for ok := true; ok; ok = indexNode2 != indexNode1 {
 		indexNode2 = rand.Intn(len(pNodes))
 	}
+	indexNode3 := rand.Intn(len(pNodes))
 	for ok := true; ok; ok = indexNode2 != indexNode1 && indexNode3 != indexNode1 {
 		indexNode3 = rand.Intn(len(pNodes))
 	}
