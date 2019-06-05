@@ -196,12 +196,12 @@ func choose3Nodes(pNodes Nodes) Nodes {
 	indexNode1 := rand.Intn(len(pNodes))
 
 	indexNode2 := rand.Intn(len(pNodes))
-	for indexNode2 != indexNode1 {
+	for indexNode2 == indexNode1 {
 		indexNode2 = rand.Intn(len(pNodes))
 	}
 
 	indexNode3 := rand.Intn(len(pNodes))
-	for indexNode2 != indexNode1 && indexNode3 != indexNode1 {
+	for indexNode2 == indexNode1 || indexNode3 == indexNode1 {
 		indexNode3 = rand.Intn(len(pNodes))
 	}
 
