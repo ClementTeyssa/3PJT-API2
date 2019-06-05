@@ -13,6 +13,7 @@ import (
 )
 
 type Transaction struct {
+	ID          int     `json:"id"`
 	AccountFrom string  `json:"accountfrom"`
 	AccountTo   string  `json:"accountto""`
 	Amount      float32 `json:"amount"`
@@ -49,9 +50,19 @@ type GoodResult struct {
 	Good string `json:"good"`
 }
 
+type Block struct {
+	Timestamp     int    `json:"timestamp"`
+	TransactionID int    `json:"transactionid"`
+	Hash          string `json:"hash"`
+	PrevHash      string `json:"prevhash"`
+}
+
 const URL_GET_NODES = "https://3pjt-dnode.infux.fr/get-nodes"
 const URL_GET_SOLDE_API = "https://3pjt-api.infux.fr/soldeapi"
 const URL_GET_VERIF = "https://3pjt-api.infux.fr/transactions/verify"
+const URL_SEND_TRANSAC = "https://3pjt-api.infux.fr/transactions"
+const URL_SEND_BLOCK = "https://3pjt-api.infux.fr/CreateBlocks"
+const URL_SEND_INFO_REWARD = "https://3pjt-api3.infux.fr/"
 
 func DoVerifications(w http.ResponseWriter, r *http.Request) {
 	helper.LogRequest(r)
@@ -142,28 +153,41 @@ func DoVerifications(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	//TODO: si les 3 sont OK on ajoute la transaction en l'envoyant à l'API1
+	// si les 3 sont OK on ajoute la transaction en l'envoyant à l'API1
+	transaction, err = sendTransactionToApi(transaction)
+	if err != nil {
+		helper.ErrorHandlerHttpRespond(w, err.Error())
+		return
+	}
 
-	// var email, password string
-	// fmt.Printf("Email: ")
-	// fmt.Scan(&email)
-	// fmt.Printf("Password: ")
-	// fmt.Scan(&password)
-	// defs.MyUser.Email = email
-	// defs.MyUser.Password = password
-	// jsonValue, _ := json.Marshal(defs.MyUser)
-	// response, err := http.Post("https://3pjt-api.infux.fr/login", "application/json", bytes.NewBuffer(jsonValue))
-	// if err != nil && response == nil {
-	// 	fmt.Printf("The HTTP request failed with error %s\n", err)
-	// 	return
-	// } else {
-	// data, _ := ioutil.ReadAll(response.Body)
-	// json.Unmarshal(data, &defs.MyNode)
+	// on récupère l'id de la transaction qu'on donne à un des 3 node pour qu'il ajoute la transaction à la blockchain
+	// une fois ajouté, le node nous renvoie les informations du block
+	Block, err := sendTransactionToNode(transaction, Nodes)
+	if err != nil {
+		helper.ErrorHandlerHttpRespond(w, err.Error())
+		return
+	}
 
-	//TODO: on récupère l'id de la transaction qu'on donne à un des 3 node pour qu'il ajoute la transaction à la blockchain
-	//TODO: une fois ajouté, le node nous renvoie les informations du block
-	//TODO: on ajoute le block à l'API1
+	// on ajoute le block à l'API1
+	err = sendBlockToApi(Block)
+	if err != nil {
+		helper.ErrorHandlerHttpRespond(w, err.Error())
+		return
+	}
+
 	//TODO: on envoie dans l'API3 l'identité des 3 nodes qui ont validé pour qu'il puissent avoir un reward au bout de x validations
+	for _, Node := range Nodes {
+		err = sendInfoToRewardApi(Node)
+		if err != nil {
+			helper.ErrorHandlerHttpRespond(w, err.Error())
+			return
+		}
+	}
+
+	var GoodResult GoodResult
+	GoodResult.Good = "Transaction added"
+
+	json.NewEncoder(w).Encode(GoodResult)
 }
 
 func getNodes() (NodesGet, error) {
@@ -266,7 +290,7 @@ func askForVerifToNodes(node Node, transac Transaction) (bool, error) {
 	println(node.Port)
 
 	//send to a node
-	response, err := http.Post("http://"+node.Ip+":"+node.Port, "application/json", bytes.NewBuffer(jsonToSend))
+	response, err := http.Post("http://"+node.Ip+":"+node.Port+"/verif-transac", "application/json", bytes.NewBuffer(jsonToSend))
 	if err != nil {
 		return false, err
 	}
@@ -295,6 +319,125 @@ func askForVerifToNodes(node Node, transac Transaction) (bool, error) {
 	return true, nil
 }
 
-// func sendTransactionToApi() (Transaction, error) {
+func sendTransactionToApi(transac Transaction) (Transaction, error) {
+	jsonToSend, err := json.Marshal(transac)
+	if err != nil {
+		return transac, err
+	}
 
-// }
+	response, err := http.Post(URL_SEND_TRANSAC, "application/json", bytes.NewBuffer(jsonToSend))
+	if err != nil {
+		return transac, err
+	}
+
+	if response == nil {
+		return transac, errors.New("Response is null")
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return transac, err
+	}
+
+	var Error helper.MyError
+	json.Unmarshal(body, &Error)
+	if Error.Error != "" {
+		return transac, errors.New(Error.Error)
+	}
+
+	var Transaction Transaction
+	json.Unmarshal(body, &Transaction)
+
+	return Transaction, nil
+}
+
+func sendTransactionToNode(transac Transaction, nodes Nodes) (Block, error) {
+	indexNode := rand.Intn(len(nodes))
+	node := nodes[indexNode]
+	// /gen-block
+	var Block Block
+
+	jsonToSend, err := json.Marshal(transac)
+	if err != nil {
+		return Block, err
+	}
+
+	response, err := http.Post("http://"+node.Ip+":"+node.Port+"/gen-block", "application/json", bytes.NewBuffer(jsonToSend))
+	if err != nil {
+		return Block, err
+	}
+	if response == nil {
+		return Block, errors.New("Response is null")
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return Block, err
+	}
+
+	var Error helper.MyError
+	json.Unmarshal(body, &Error)
+	if Error.Error != "" {
+		return Block, errors.New(Error.Error)
+	}
+
+	json.Unmarshal(body, &Block)
+
+	return Block, nil
+}
+
+func sendBlockToApi(block Block) error {
+	jsonToSend, err := json.Marshal(block)
+	if err != nil {
+		return err
+	}
+
+	response, err := http.Post(URL_SEND_BLOCK, "application/json", bytes.NewBuffer(jsonToSend))
+	if err != nil {
+		return err
+	}
+	if response == nil {
+		return errors.New("Response is null")
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+
+	var Error helper.MyError
+	json.Unmarshal(body, &Error)
+	if Error.Error != "" {
+		return errors.New(Error.Error)
+	}
+
+	return nil
+}
+
+func sendInfoToRewardApi(Node Node) error {
+	jsonToSend, err := json.Marshal(Node)
+	if err != nil {
+		return err
+	}
+
+	response, err := http.Post(URL_SEND_INFO_REWARD, "application/json", bytes.NewBuffer(jsonToSend))
+	if err != nil {
+		return err
+	}
+	if response == nil {
+		return errors.New("Response is null")
+	}
+
+	body, err := ioutil.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+
+	var Error helper.MyError
+	json.Unmarshal(body, &Error)
+	if Error.Error != "" {
+		return errors.New(Error.Error)
+	}
+
+	return nil
+}
